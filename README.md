@@ -67,8 +67,35 @@ Hubitat apps are installed as source, not from files on disk. Two options:
 4. Go to **Apps** → **Add User App** → select **Multi-Vendor Color Bulb Controller**.
 
 ### Option B — Import by URL
-If you push this file to a public GitHub raw URL, use **Apps Code → New App → Import**
-and paste the raw URL.
+Use **Apps Code → New App → Import** and paste the raw URL:
+
+```
+https://raw.githubusercontent.com/jshimanek/Hubitat/master/MultiVendorColorController.groovy
+```
+
+### Option C — Hubitat Package Manager (HPM)
+
+This repo ships a [`packageManifest.json`](packageManifest.json) so HPM can install and
+keep the app updated.
+
+**Install:**
+1. In Hubitat, open **Hubitat Package Manager**.
+2. Choose **Install → From a URL**.
+3. Paste the manifest raw URL:
+   ```
+   https://raw.githubusercontent.com/jshimanek/Hubitat/master/packageManifest.json
+   ```
+4. Follow the prompts. HPM installs the app code for you; then add the app under
+   **Apps → Add User App**.
+
+**Updates:** HPM's **Update** action compares the `version` in the manifest against
+what's installed. To publish a new version, bump `version` and `dateReleased` in
+`packageManifest.json`, push, and HPM users will be offered the update.
+
+**Optional — make it searchable in HPM:** "Install from a URL" works for you and anyone
+you share the manifest URL with. To have it show up in HPM's **search/browse**, the
+package must be listed in an HPM *repository* that the community index tracks (submitted
+to the HPM project). That step is optional and only needed for public discoverability.
 
 ## Use
 

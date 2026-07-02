@@ -1,0 +1,23 @@
+{
+    "packageName": "Multi-Vendor Color Bulb Controller",
+    "author": "shimanek",
+    "version": "1.0.0",
+    "minimumHEVersion": "2.3.0",
+    "dateReleased": "2026-07-02",
+    "releaseNotes": "Initial HPM release: on/off, common color, manufacturer light patterns, scenes, color show, motion/time automations, and a named preset-effect fallback for drivers that don't advertise a lightEffects list.",
+    "documentationLink": "https://github.com/jshimanek/Hubitat/blob/master/README.md",
+    "communityLink": "",
+    "id": "8b1d44d9-ac44-4dc5-b2fb-8babca09ba52",
+    "apps": [
+        {
+            "id": "62fa13d5-7d3a-406a-a298-1c29bbb6fe0e",
+            "name": "Multi-Vendor Color Bulb Controller",
+            "namespace": "shimanek",
+            "location": "https://raw.githubusercontent.com/jshimanek/Hubitat/master/MultiVendorColorController.groovy",
+            "required": true,
+            "oauth": false,
+            "primary": true
+        }
+    ],
+    "drivers": []
+}
