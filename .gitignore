@@ -1,6 +1,11 @@
 # Claude Code local settings (machine-specific)
 .claude/settings.local.json
 
+# tinytuya output — contains device IDs and LOCAL KEYS, never commit
+snapshot.json
+tinytuya.json
+devices.json
+
 # OS / editor cruft
 Thumbs.db
 Desktop.ini
