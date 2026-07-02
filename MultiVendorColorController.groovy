@@ -36,6 +36,25 @@ import groovy.transform.Field
     [name: "White",      hue: 0,   sat: 0]
 ]
 
+/**
+ * Preset effect names for drivers that support the `setEffect` command but do NOT
+ * advertise a `lightEffects` attribute (so the list can't be auto-discovered).
+ * Example: ivarho's "Tuya Generic RGBW Bulb" driver, whose effect names live only
+ * in code comments. Keys are the human-readable names shown in the app; values are
+ * the effect ids passed to setEffect(). Order is preserved for the dropdown.
+ */
+@Field static final Map<String, Integer> TUYA_RGBW_EFFECTS = [
+    "Good night":           0,  "Reading":       1,  "Working":     2,  "Leisure":     3,
+    "Grassland":            4,  "Dazzling":      5,  "Flashing (white/red)": 6,
+    "Gorgeous":             7,  "Night Light":   8,  "Blue Sky":    20, "Sunrise":     21,
+    "Sunset Glow":          22, "Ocean":         23, "Sunflower":   24, "Forest":      25,
+    "Kung Fu":              26, "Candlelight":   27, "Dream":       28, "Mediterranean": 29,
+    "French":               30, "American":      31, "Birthday":    32, "Wedding":      33,
+    "Christmas":            34, "Independence":  35, "Diwali":      36, "Holi":        37,
+    "Victory Day":          38, "Easter":        39, "Halloween":   40, "Soft":        41,
+    "Dynamic":              42
+]
+
 definition(
     name:        "Multi-Vendor Color Bulb Controller",
     namespace:   "shimanek",
@@ -202,16 +221,36 @@ def effectsPage() {
                           title: "${dev.displayName}",
                           options: fx,
                           required: false
+                } else if (dev.hasCommand("setEffect")) {
+                    // Driver supports the setEffect command but doesn't advertise a
+                    // list, so offer the named preset list (e.g. Tuya RGBW bulbs).
+                    input name: "fxpreset_${dev.id}",
+                          type: "enum",
+                          title: "${dev.displayName} — preset effects (driver advertises none)",
+                          options: TUYA_RGBW_EFFECTS.keySet().toList(),
+                          required: false
                 } else {
                     String raw = rawEffects(dev)
                     if (raw) {
                         paragraph "${dev.displayName}: <b>lightEffects present but no options could be read.</b> Raw value: <code>${raw}</code>"
                     } else {
-                        paragraph "${dev.displayName}: no light-pattern data reported yet. If this device has a lightEffects capability, run its <b>Initialize</b> / <b>Configure</b> / <b>Refresh</b> command on the device page, then reopen this page."
+                        paragraph "${dev.displayName}: no light-pattern support (no setEffect command and nothing advertised)."
                     }
                 }
             }
             input name: "btnApplyPerBulb", type: "button", title: "Apply each selected pattern"
+        }
+
+        if (bulbs.any { presetCapable(it) }) {
+            section("Preset effects → all compatible bulbs") {
+                paragraph "Applies a named preset to every selected bulb that supports setEffect but doesn't advertise its own list."
+                input name: "presetEffectAll",
+                      type: "enum",
+                      title: "Preset effect",
+                      options: TUYA_RGBW_EFFECTS.keySet().toList(),
+                      required: false
+                input name: "btnApplyPresetAll", type: "button", title: "Apply preset to all compatible bulbs"
+            }
         }
 
         section("Cycle") {
@@ -344,6 +383,7 @@ def appButtonHandler(String btn) {
         case "btnApplyTemp":   applyColorTemp();      break
         case "btnApplyCommon": applyCommonEffect();   break
         case "btnApplyPerBulb":applyPerBulbEffects(); break
+        case "btnApplyPresetAll":applyPresetEffectToAll(); break
         case "btnNextEffect":  cycleEffect(true);     break
         case "btnPrevEffect":  cycleEffect(false);    break
         case "btnSaveScene":   saveScene();           break
@@ -415,6 +455,7 @@ private applyCommonEffect() {
 
 private applyPerBulbEffects() {
     bulbs?.each { dev ->
+        // Advertised effect (resolved by name -> id from the device's own list).
         String chosen = settings["effect_${dev.id}"]
         if (chosen) {
             Integer id = effectIdForName(dev, chosen)
@@ -423,8 +464,36 @@ private applyPerBulbEffects() {
                 logDebug "Set '${chosen}' (id ${id}) on ${dev.displayName}"
             }
         }
+        // Preset effect (name -> number from the built-in TUYA_RGBW_EFFECTS map).
+        String preset = settings["fxpreset_${dev.id}"]
+        if (preset) {
+            Integer num = TUYA_RGBW_EFFECTS[preset]
+            if (num != null && dev.hasCommand("setEffect")) {
+                dev.setEffect(num)
+                logDebug "Set preset '${preset}' (#${num}) on ${dev.displayName}"
+            }
+        }
     }
     log.info "Applied per-bulb effects"
+}
+
+private applyPresetEffectToAll() {
+    if (!presetEffectAll) { log.warn "No preset effect selected"; return }
+    Integer num = TUYA_RGBW_EFFECTS[presetEffectAll]
+    if (num == null) { log.warn "Unknown preset effect: ${presetEffectAll}"; return }
+    int count = 0
+    bulbs?.each { dev ->
+        if (presetCapable(dev)) {
+            dev.setEffect(num)
+            count++
+        }
+    }
+    log.info "Applied preset effect '${presetEffectAll}' (#${num}) to ${count} bulb(s)"
+}
+
+/** True if a bulb accepts setEffect but does not advertise its own effect list. */
+private boolean presetCapable(dev) {
+    dev.hasCommand("setEffect") && effectMapFor(dev).isEmpty()
 }
 
 private cycleEffect(boolean forward) {

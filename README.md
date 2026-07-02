@@ -38,6 +38,20 @@ supports.
 - Bulbs **without** it: they simply show "no light-pattern support reported." Basic
   on/off/color still works for them.
 
+#### Preset effects fallback (drivers that don't advertise a list)
+
+Some drivers declare the `LightEffects` capability and accept `setEffect(number)`
+but never publish the `lightEffects` attribute — so the effect list can't be
+auto-discovered (ivarho's "Tuya Generic RGBW Bulb" driver is one: the effect names
+live only in code comments). For any selected bulb that supports `setEffect` but
+advertises nothing, the effects page shows a **named preset dropdown** (Good night,
+Reading, Sunrise, Halloween, …) built into the app; picking a name sends the matching
+effect number. There's also an **"apply preset to all compatible bulbs"** shortcut.
+
+Caveat: because these drivers report nothing back, the app can't confirm which effect
+is active, so the status table and scene capture won't record an effect name for them
+(color/power are still captured normally).
+
 > Note: effect *names* differ between brands, so a pattern is only offered in the
 > "Common patterns" list when **every** selected bulb advertises that exact name.
 > The per-bulb section always shows each device's full list.
