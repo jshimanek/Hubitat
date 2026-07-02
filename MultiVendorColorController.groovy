@@ -203,7 +203,12 @@ def effectsPage() {
                           options: fx,
                           required: false
                 } else {
-                    paragraph "${dev.displayName}: no light-pattern support reported (no lightEffects capability)."
+                    String raw = rawEffects(dev)
+                    if (raw) {
+                        paragraph "${dev.displayName}: <b>lightEffects present but no options could be read.</b> Raw value: <code>${raw}</code>"
+                    } else {
+                        paragraph "${dev.displayName}: no light-pattern data reported yet. If this device has a lightEffects capability, run its <b>Initialize</b> / <b>Configure</b> / <b>Refresh</b> command on the device page, then reopen this page."
+                    }
                 }
             }
             input name: "btnApplyPerBulb", type: "button", title: "Apply each selected pattern"
@@ -627,13 +632,32 @@ private Map effectMapFor(dev) {
     }
     if (!raw) return [:]
     try {
-        def parsed = new JsonSlurper().parseText(raw)
+        def parsed = new JsonSlurper().parseText(raw as String)
         Map out = [:]
-        parsed.each { k, v -> out[k.toString()] = v.toString() }
+        if (parsed instanceof Map) {
+            // Standard form: {"0":"Effect A","1":"Effect B"}
+            parsed.each { k, v -> out[k.toString()] = v.toString() }
+        } else if (parsed instanceof List) {
+            // Some drivers (several Tuya ones) publish a JSON array:
+            // ["None","Colorful","Flash"] -> use the list index as the effect id.
+            parsed.eachWithIndex { v, i -> out[i.toString()] = v.toString() }
+        } else {
+            logDebug "Unrecognized lightEffects shape for ${dev.displayName}: ${raw}"
+        }
         return out
     } catch (Exception e) {
-        logDebug "Could not parse lightEffects for ${dev.displayName}: ${e.message}"
+        logDebug "Could not parse lightEffects for ${dev.displayName}: ${e.message} (raw=${raw})"
         return [:]
+    }
+}
+
+/** Raw, unparsed value of the lightEffects attribute (for on-screen diagnostics). */
+private String rawEffects(dev) {
+    try {
+        def v = dev.currentValue("lightEffects")
+        return (v != null) ? v.toString() : null
+    } catch (ignored) {
+        return null
     }
 }
 
