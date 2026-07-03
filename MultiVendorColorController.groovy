@@ -558,11 +558,12 @@ private boolean isTuyaStyle(dev) {
 
 /** Ask a device (e.g. Govee) to load its effect/scene list, if its driver supports it. */
 private loadDeviceScenes(String id) {
-    def dev = bulbs?.find { it.id == id }
-    if (!dev) { log.warn "loadDeviceScenes: device ${id} not in selection"; return }
+    // Button ids arrive as strings; dev.id is numeric, so compare as strings.
+    def dev = bulbs?.find { it.id?.toString() == id }
+    if (!dev) { log.warn "loadDeviceScenes: device '${id}' not in selection"; return }
     if (dev.hasCommand("sceneLoad")) {
         dev.sceneLoad()
-        log.info "Requested scene load for ${dev.displayName}; reopen the effects page once it finishes."
+        log.info "Requested scene load for ${dev.displayName}; wait a few seconds, then reopen the effects page."
     } else {
         log.warn "${dev.displayName} has no sceneLoad command"
     }
