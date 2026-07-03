@@ -10,6 +10,8 @@
  *   - Zero-pad the CRC32 checksum to a full 4 bytes.
  *   - Read/write the frame length as a full 4-byte field (was 1 byte).
  *   - Publish the standard lightEffects list and effectName attribute.
+ *   - Color: use Tuya "rgb8" encoding (RRGGBB+HHHHSSVV) for setColor and the colour
+ *     read (was hsv, which made blue appear green); saturation 0 uses white mode.
  * Original source: https://github.com/ivarho/hubitatappndevice
  * ---------------------------------------------------------------------------
  *
@@ -164,46 +166,83 @@ def setColorTemperature(colortemperature, level=null, transitionTime=null) {
 //colormap required (COLOR_MAP) - Color map settings [hue*:(0 to 100), saturation*:(0 to 100), level:(0 to 100)]
 def setColor(colormap) {
 	if (logTrace) log.trace("setColor($colormap)")
+	if (logEnable) log.debug(colormap)
 
 	def setMap = [:]
 
-	setMap[21] = "colour"
+	Integer hue = (colormap.hue != null ? colormap.hue : 0) as Integer          // 0-100
+	Integer sat = (colormap.saturation != null ? colormap.saturation : 100) as Integer  // 0-100
+	Integer lvl = (colormap.level != null ? colormap.level : 100) as Integer     // 0-100
 
-	if (logEnable) log.debug(colormap)
-
-	// Bug in Hubitat: documentation claims to give you a HSL color value,
-	// however, the value corresponds to a HSV color value
-
-	// Next bug, tuya documentation claims that the bulb wants a HSV color value
-	// https://developer.tuya.com/en/docs/iot/generic-light-bulb-template?id=Kag3g03a9vy81
-	// however, correct color is only achived by using HSL color value. This could also
-	// be a Ledvance issue. So other bulbs, might or might not need conversion to HSV
-	if (color_mode == "hsl") {
-		colormap = hsvToHsl(colormap.hue, colormap.saturation, colormap.level)
-	} else if (color_mode == "hsv") {
-		colormap = colormap
-	}
-
-	Integer bHue = colormap.hue * 3.6
-	Integer bSat = colormap.saturation*10
-	Integer bValue = colormap.level*10
-
-
-	def setting = sprintf("%04x%04x%04x", bHue, bSat, bValue)
-
-	setMap[24] = setting
-
-	if (bHue == 0 && bSat == 0 && bValue == 0) {
-		off()
-	} else {
+	// PATCH: saturation 0 means white. Use the bulb's white mode (dps 21="white",
+	// brightness on dps 22) instead of a colour value with sat 0, which many Tuya
+	// bulbs render as off/very dim.
+	if (sat <= 0) {
+		setMap[21] = "white"
+		setMap[22] = Math.max(10, Math.min(1000, lvl * 10))
 		on()
+		state.statePayload += setMap
+		runInMillis(250, 'sendSetMessage')
+		return
 	}
 
-	//send(generate_payload("set", setMap))
+	// PATCH: this bulb uses Tuya's "rgb8" colour encoding, NOT hsv. The string is
+	// RRGGBB + HHHH(0-360) + SS(0-255) + VV(0-255); the device renders from the RGB
+	// bytes. (Verified on-device: sending hsv made blue read as green.) Convert the
+	// Hubitat HSV (0-100 each) to RGB and to the trailing 0-360/0-255 HSV fields.
+	double h360 = hue * 3.6
+	double s01  = sat / 100.0
+	double v01  = lvl / 100.0
+	List rgb = hsvToRgb(h360, s01, v01)
+
+	Integer hh = Math.max(0, Math.min(360, Math.round(h360) as Integer))
+	Integer ss = Math.max(0, Math.min(255, Math.round(s01 * 255) as Integer))
+	Integer vv = Math.max(0, Math.min(255, Math.round(v01 * 255) as Integer))
+
+	setMap[21] = "colour"
+	setMap[24] = sprintf("%02x%02x%02x%04x%02x%02x", rgb[0], rgb[1], rgb[2], hh, ss, vv)
+
+	on()
 
 	state.statePayload += setMap
 	runInMillis(250, 'sendSetMessage')
+}
 
+// HSV (h:0-360, s:0-1, v:0-1) -> [r,g,b] each 0-255
+private List hsvToRgb(double h, double s, double v) {
+	double c = v * s
+	double x = c * (1 - Math.abs(((h / 60.0) % 2) - 1))
+	double m = v - c
+	double r, g, b
+	if      (h < 60)  { r = c; g = x; b = 0 }
+	else if (h < 120) { r = x; g = c; b = 0 }
+	else if (h < 180) { r = 0; g = c; b = x }
+	else if (h < 240) { r = 0; g = x; b = c }
+	else if (h < 300) { r = x; g = 0; b = c }
+	else              { r = c; g = 0; b = x }
+	return [ Math.round((r + m) * 255) as Integer,
+	         Math.round((g + m) * 255) as Integer,
+	         Math.round((b + m) * 255) as Integer ]
+}
+
+// [r,g,b] each 0-255 -> [hue:0-100, saturation:0-100, level:0-100] (Hubitat scale)
+private Map rgbToHsv(int r, int g, int b) {
+	double rf = r / 255.0, gf = g / 255.0, bf = b / 255.0
+	double mx = Math.max(rf, Math.max(gf, bf))
+	double mn = Math.min(rf, Math.min(gf, bf))
+	double d = mx - mn
+	double h = 0
+	if (d != 0) {
+		if (mx == rf)      h = (((gf - bf) / d) % 6)
+		else if (mx == gf) h = ((bf - rf) / d) + 2
+		else               h = ((rf - gf) / d) + 4
+		h *= 60
+		if (h < 0) h += 360
+	}
+	double s = (mx == 0) ? 0 : (d / mx)
+	return [ hue: Math.round(h / 3.6) as Integer,
+	         saturation: Math.round(s * 100) as Integer,
+	         level: Math.round(mx * 100) as Integer ]
 }
 
 //hue required (NUMBER) - Color Hue (0 to 100)
@@ -461,28 +500,20 @@ def parse(String message) {
 			sendEvent(name: "colorTemperature", value : colortemperature)
 		}
 
-		// Color information
+		// Color information. dps 24 = rgb8: RRGGBB + HHHH + SS + VV. PATCH: decode the
+		// leading RGB bytes into Hubitat HSV (0-100). (Was decoding as 0-360/0-1000
+		// hsv with wrong offsets, which reported the wrong colour.)
 		if (status_object.dps.containsKey("24")) {
-			// Hue
-			def hueStr = status_object.dps["24"].substring(0,4)
-			Float hue_fl = Integer.parseInt(hueStr, 16)/3.6
-			Integer hue = hue_fl.round(0)
-
-			// Saturation
-			def satStr = status_object.dps["24"].substring(5,8)
-			def sat = Integer.parseInt(satStr, 16)/10
-
-			// Level
-			def levelStr = status_object.dps["24"].substring(9,12)
-			def level = Integer.parseInt(levelStr, 16)/10
-
-			// Bug in Hubitat: Hubitat stores colors as HSV, however documents claim HSL. The tuya
-			// Ledvance bulb I have store color information in HSL, hence need to convert.
-			def colormap = hslToHsv(hue, sat, level)
-
-			sendEvent(name: "hue", value : colormap.hue)
-			sendEvent(name: "saturation", value : colormap.saturation)
-			sendEvent(name: "level", value : colormap.value)
+			String c = status_object.dps["24"]
+			if (c && c.length() >= 6) {
+				int r = Integer.parseInt(c.substring(0, 2), 16)
+				int g = Integer.parseInt(c.substring(2, 4), 16)
+				int b = Integer.parseInt(c.substring(4, 6), 16)
+				def hsv = rgbToHsv(r, g, b)
+				sendEvent(name: "hue", value : hsv.hue)
+				sendEvent(name: "saturation", value : hsv.saturation)
+				sendEvent(name: "level", value : hsv.level)
+			}
 		}
 	}
 }
