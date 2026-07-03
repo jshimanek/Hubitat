@@ -120,10 +120,15 @@ def initialize() {
         // Only act on the running -> stopped transition, so pressing Done for other
         // reasons (while the show is already off) doesn't turn the bulbs off.
         if (atomicState.showRunning) {
-            log.info "Color show disabled; turning bulbs off"
             atomicState.showRunning = false
             unschedule("runShowStep")
-            allOff()
+            // showOffOnStop defaults to true (null when never toggled -> treat as on)
+            if (showOffOnStop != false) {
+                log.info "Color show disabled; turning bulbs off"
+                allOff()
+            } else {
+                log.info "Color show disabled; leaving bulbs at last color"
+            }
         } else {
             unschedule("runShowStep")
         }
@@ -334,6 +339,7 @@ def showPage() {
 
         section("Control") {
             input name: "showEnabled", type: "bool", title: "Enable color show", defaultValue: false, submitOnChange: true
+            input name: "showOffOnStop", type: "bool", title: "Turn bulbs off when the show stops", defaultValue: true
             paragraph "Set the options above, turn this <b>ON</b>, then press <b>Done</b> to start the show. Turn it <b>OFF</b> and press <b>Done</b> to stop. (Scheduling must be started from Done, not a button, to run reliably on Hubitat.)"
             paragraph atomicState.showRunning ? "Status: <b>running</b> (${showMode})" : "Status: stopped"
         }
