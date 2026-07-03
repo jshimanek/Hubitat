@@ -109,7 +109,7 @@ def initialize() {
 
     // Resume the color show if it was running before this reconfigure.
     if (atomicState.showRunning) {
-        runShowStep()
+        armShowSchedule()
     }
 }
 
@@ -592,13 +592,38 @@ private Map sceneOptions() {
 
 /* ============================ Color show ============================ */
 
+private Integer showIntervalSecs() {
+    return Math.max(5, (showInterval != null ? showInterval as Integer : 30))
+}
+
+// Build a Quartz cron expression for the show interval. Sub-minute intervals use
+// the seconds field; >= 60s is rounded to whole minutes.
+private String showCron(Integer sec) {
+    if (sec <= 59) return "0/${sec} * * * * ?"
+    int mins = Math.max(1, Math.round(sec / 60.0) as Integer)
+    if (mins >= 60) return "0 0 0/1 * * ?"
+    return "0 0/${mins} * * * ?"
+}
+
+// Register the recurring schedule that drives the show. We use schedule() (a
+// persistent cron job) instead of a self-rescheduling runIn, which did not
+// re-fire reliably when first armed from inside the button handler.
+private armShowSchedule() {
+    Integer interval = showIntervalSecs()
+    String cron = showCron(interval)
+    unschedule("runShowStep")
+    schedule(cron, "runShowStep")
+    log.info "Color show schedule armed: every ~${interval}s (cron='${cron}')"
+}
+
 private startShow() {
     if (!showMode) { log.warn "Choose Random or Rotate first"; return }
     if (!bulbs)    { log.warn "No bulbs selected"; return }
     atomicState.showRunning = true
     atomicState.rotateIndex = 0
-    log.info "Color show starting: mode=${showMode}, bulbs=${bulbs.size()} (${bulbs.collect { it.displayName }}), interval=${showInterval ?: 30}s, level=${showLevel ?: 100}, sameForAll=${showSameForAll}, colors=${showColors ?: 'ALL'}"
-    runShowStep()
+    log.info "Color show starting: mode=${showMode}, bulbs=${bulbs.size()} (${bulbs.collect { it.displayName }}), interval=${showIntervalSecs()}s, level=${showLevel ?: 100}, sameForAll=${showSameForAll}, colors=${showColors ?: 'ALL'}"
+    armShowSchedule()
+    runShowStep()   // apply the first step immediately for instant feedback
 }
 
 private stopShow() {
@@ -614,8 +639,8 @@ def runShowStep() {
     Integer level = (showLevel != null) ? showLevel as Integer : 100
     logDebug "runShowStep: mode=${showMode}, bulbs=${bulbs.size()}, level=${level}, rotateIndex=${atomicState.rotateIndex}"
 
-    // Apply the step inside try/catch so a failure never prevents the reschedule
-    // below (otherwise the show would apply once and silently stop).
+    // Apply the step inside try/catch so a per-step failure is logged but never
+    // propagates out of the scheduled callback.
     try {
         if (showMode == "Random") {
             if (showSameForAll) {
@@ -652,11 +677,8 @@ def runShowStep() {
     } catch (e) {
         log.error "runShowStep: error while applying step: ${e}"
     }
-
-    // Always reschedule (unless stopped) so a per-step error can't kill the show.
-    Integer interval = (showInterval != null) ? Math.max(5, showInterval as Integer) : 30
-    runIn(interval, "runShowStep", [overwrite: true])
-    log.info "runShowStep: next step scheduled in ${interval}s (showRunning=${atomicState.showRunning})"
+    // Recurrence is driven by the cron schedule armed in armShowSchedule(); no
+    // self-reschedule here.
 }
 
 private Map randomColor(Integer level) {
