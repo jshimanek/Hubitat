@@ -483,7 +483,7 @@ private applyColorTemp() {
 private applyCommonEffect() {
     if (!commonEffect) { log.warn "No common effect selected"; return }
     bulbs?.each { dev ->
-        Integer id = effectIdForName(dev, commonEffect)
+        Number id = effectIdForName(dev, commonEffect)
         if (id != null) { dev.setEffect(id) }
     }
     log.info "Applied common effect '${commonEffect}'"
@@ -496,7 +496,7 @@ private applyPerBulbEffects() {
         // so a stale preset value can't override the current selection.
         String chosen = settings["effect_${dev.id}"]
         if (chosen) {
-            Integer id = effectIdForName(dev, chosen)
+            Number id = effectIdForName(dev, chosen)
             if (id != null) {
                 dev.setEffect(id)
                 log.info "Effect '${chosen}' (id ${id}) -> ${dev.displayName}"
@@ -820,18 +820,25 @@ private List<String> commonEffects(Map<String, List<String>> deviceEffects) {
     return common.toList().sort()
 }
 
-/** Resolves the numeric effect id for a given effect name on a specific device. */
-private Integer effectIdForName(dev, String name) {
+/**
+ * Resolves the numeric effect id for a given effect name on a specific device.
+ * Returns a Number (not forced to Integer) because some drivers use large effect
+ * ids -- e.g. Govee cloud/DIY scene codes can exceed the Integer range.
+ */
+private Number effectIdForName(dev, String name) {
     Map fx = effectMapFor(dev)
     def entry = fx.find { k, v -> v == name }
     if (entry == null) {
         logDebug "'${name}' not found on ${dev.displayName}"
         return null
     }
+    String key = entry.key.toString().trim()
+    if (key.isInteger()) return key.toInteger()
+    if (key.isLong())    return key.toLong()
     try {
-        return entry.key as Integer
+        return new BigDecimal(key)
     } catch (Exception e) {
-        log.warn "Effect id '${entry.key}' on ${dev.displayName} is not numeric"
+        log.warn "Effect id '${key}' on ${dev.displayName} is not numeric"
         return null
     }
 }
