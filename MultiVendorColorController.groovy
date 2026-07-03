@@ -108,7 +108,7 @@ def initialize() {
     }
 
     // Resume the color show if it was running before this reconfigure.
-    if (state.showRunning) {
+    if (atomicState.showRunning) {
         runShowStep()
     }
 }
@@ -318,7 +318,7 @@ def showPage() {
         section("Control") {
             input name: "btnStartShow", type: "button", title: "Start show"
             input name: "btnStopShow",  type: "button", title: "Stop show"
-            paragraph state.showRunning ? "Status: <b>running</b> (${showMode})" : "Status: stopped"
+            paragraph atomicState.showRunning ? "Status: <b>running</b> (${showMode})" : "Status: stopped"
         }
     }
 }
@@ -595,24 +595,24 @@ private Map sceneOptions() {
 private startShow() {
     if (!showMode) { log.warn "Choose Random or Rotate first"; return }
     if (!bulbs)    { log.warn "No bulbs selected"; return }
-    state.showRunning = true
-    state.rotateIndex = 0
+    atomicState.showRunning = true
+    atomicState.rotateIndex = 0
     log.info "Color show starting: mode=${showMode}, bulbs=${bulbs.size()} (${bulbs.collect { it.displayName }}), interval=${showInterval ?: 30}s, level=${showLevel ?: 100}, sameForAll=${showSameForAll}, colors=${showColors ?: 'ALL'}"
     runShowStep()
 }
 
 private stopShow() {
-    state.showRunning = false
+    atomicState.showRunning = false
     unschedule("runShowStep")
     log.info "Color show stopped"
 }
 
 def runShowStep() {
-    if (!state.showRunning) { logDebug "runShowStep: show not running; exiting"; return }
+    if (!atomicState.showRunning) { logDebug "runShowStep: show not running; exiting"; return }
     if (!bulbs) { log.warn "runShowStep: no bulbs selected; stopping show"; stopShow(); return }
 
     Integer level = (showLevel != null) ? showLevel as Integer : 100
-    logDebug "runShowStep: mode=${showMode}, bulbs=${bulbs.size()}, level=${level}, rotateIndex=${state.rotateIndex}"
+    logDebug "runShowStep: mode=${showMode}, bulbs=${bulbs.size()}, level=${level}, rotateIndex=${atomicState.rotateIndex}"
 
     // Apply the step inside try/catch so a failure never prevents the reschedule
     // below (otherwise the show would apply once and silently stop).
@@ -636,7 +636,7 @@ def runShowStep() {
             }
         } else if (showMode == "Rotate") {
             List<String> names = (showColors && showColors.size() > 0) ? showColors : NAMED_COLORS.collect { it.name }
-            int idx = ((state.rotateIndex ?: 0) as Integer) % names.size()
+            int idx = ((atomicState.rotateIndex ?: 0) as Integer) % names.size()
             String colorName = names[idx]
             Map c = NAMED_COLORS.find { it.name == colorName }
             log.info "Color show (Rotate): step ${idx + 1}/${names.size()} -> '${colorName}' ${c} across ${bulbs.size()} bulb(s); list=${names}"
@@ -645,7 +645,7 @@ def runShowStep() {
             } else {
                 log.warn "Rotate: no color in NAMED_COLORS matches '${colorName}'"
             }
-            state.rotateIndex = idx + 1
+            atomicState.rotateIndex = idx + 1
         } else {
             log.warn "runShowStep: unknown showMode '${showMode}'"
         }
@@ -656,7 +656,7 @@ def runShowStep() {
     // Always reschedule (unless stopped) so a per-step error can't kill the show.
     Integer interval = (showInterval != null) ? Math.max(5, showInterval as Integer) : 30
     runIn(interval, "runShowStep", [overwrite: true])
-    logDebug "runShowStep: next step scheduled in ${interval}s"
+    log.info "runShowStep: next step scheduled in ${interval}s (showRunning=${atomicState.showRunning})"
 }
 
 private Map randomColor(Integer level) {
@@ -824,7 +824,7 @@ private String sceneSummary() {
 }
 
 private String showSummary() {
-    return state.showRunning ? "Running (${showMode})" : "Random or rotating colors on a timer"
+    return atomicState.showRunning ? "Running (${showMode})" : "Random or rotating colors on a timer"
 }
 
 private String automationSummary() {
