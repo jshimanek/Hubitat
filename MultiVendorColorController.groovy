@@ -117,9 +117,16 @@ def initialize() {
         runShowStep()   // apply the first step immediately for instant feedback
         log.info "Color show enabled: mode=${showMode}, bulbs=${bulbs.size()}, interval=${showIntervalSecs()}s, level=${showLevel ?: 100}, colors=${showColors ?: 'ALL'}"
     } else {
-        if (atomicState.showRunning) log.info "Color show disabled"
-        atomicState.showRunning = false
-        unschedule("runShowStep")
+        // Only act on the running -> stopped transition, so pressing Done for other
+        // reasons (while the show is already off) doesn't turn the bulbs off.
+        if (atomicState.showRunning) {
+            log.info "Color show disabled; turning bulbs off"
+            atomicState.showRunning = false
+            unschedule("runShowStep")
+            allOff()
+        } else {
+            unschedule("runShowStep")
+        }
     }
 }
 

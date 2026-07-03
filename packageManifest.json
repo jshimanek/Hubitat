@@ -1,10 +1,10 @@
 {
     "packageName": "Multi-Vendor Color Bulb Controller",
     "author": "shimanek",
-    "version": "1.1.6",
+    "version": "1.1.7",
     "minimumHEVersion": "2.3.0",
     "dateReleased": "2026-07-02",
-    "releaseNotes": "1.1.6: Patched Tuya driver now uses the bulb's rgb8 colour encoding (fixes wrong colors, e.g. blue showing green) and switches to white mode for zero-saturation/white. 1.1.5: color show toggle applied on Done. 1.1.4: submitOnChange on show settings. 1.1.3: schedule() cron. 1.1.2: atomicState. 1.1.1: per-bulb try/catch + logging. 1.1.0: optional patched Tuya driver. 1.0.0: initial release.",
+    "releaseNotes": "1.1.7: Disabling the color show now turns the selected bulbs off (only on the running->stopped transition). 1.1.6: patched Tuya driver uses rgb8 colour encoding + white mode. 1.1.5: color show toggle applied on Done. 1.1.4: submitOnChange on show settings. 1.1.3: schedule() cron. 1.1.2: atomicState. 1.1.1: per-bulb try/catch + logging. 1.1.0: optional patched Tuya driver. 1.0.0: initial release.",
     "documentationLink": "https://github.com/jshimanek/Hubitat/blob/master/README.md",
     "communityLink": "",
     "id": "8b1d44d9-ac44-4dc5-b2fb-8babca09ba52",

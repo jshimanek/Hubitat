@@ -117,8 +117,9 @@ to the HPM project). That step is optional and only needed for public discoverab
 7. **Color show** — pick **Random** (same color on all, or a different one per bulb)
    or **Rotate** (cycle through chosen named colors), set the interval, turn
    **Enable color show** ON, and press **Done**. Turn it OFF and press **Done** to
-   stop. (Starting from **Done** rather than a button is required so the recurring
-   schedule runs reliably on Hubitat.) It survives app edits/hub reboots.
+   stop — stopping the show also turns the selected bulbs off. (Starting from **Done**
+   rather than a button is required so the recurring schedule runs reliably on
+   Hubitat.) It survives app edits/hub reboots.
 8. **Automations** — turn on / apply a scene / apply a named color when **motion** is
    detected (with an optional auto-off delay after motion stops), and run a daily
    **time** action (on / off / apply scene). Press **Done** to arm them.
