@@ -245,9 +245,15 @@ def effectsPage() {
                           options: fx,
                           required: false,
                           submitOnChange: true
-                } else if (dev.hasCommand("setEffect")) {
-                    // Driver supports the setEffect command but doesn't advertise a
-                    // list, so offer the named preset list (e.g. Tuya RGBW bulbs).
+                } else if (dev.hasCommand("sceneLoad")) {
+                    // Govee-style: driver loads its scene list on demand. It's empty
+                    // until retrieved, so offer a button to load it rather than the
+                    // (Tuya-specific) preset list, which would send wrong ids.
+                    paragraph "${dev.displayName}: no effects loaded yet. Tap below to load this device's scenes, then reopen this page."
+                    input name: "btnLoadScenes_${dev.id}", type: "button", title: "Load scenes for ${dev.displayName}"
+                } else if (dev.hasCommand("setEffect") && isTuyaStyle(dev)) {
+                    // Tuya driver that supports setEffect but advertises no list:
+                    // offer the built-in named preset list.
                     input name: "fxpreset_${dev.id}",
                           type: "enum",
                           title: "${dev.displayName} — preset effects (driver advertises none)",
@@ -258,6 +264,8 @@ def effectsPage() {
                     String raw = rawEffects(dev)
                     if (raw) {
                         paragraph "${dev.displayName}: <b>lightEffects present but no options could be read.</b> Raw value: <code>${raw}</code>"
+                    } else if (dev.hasCommand("setEffect")) {
+                        paragraph "${dev.displayName}: supports effects but advertises none. Run the driver's scene/refresh command (or Initialize) on the device, then reopen this page."
                     } else {
                         paragraph "${dev.displayName}: no light-pattern support (no setEffect command and nothing advertised)."
                     }
@@ -399,8 +407,9 @@ def automationPage() {
 def appButtonHandler(String btn) {
     logDebug "Button pressed: ${btn}"
 
-    if (btn.startsWith("sceneApply_")) { applyScene(btn.substring("sceneApply_".length())); return }
-    if (btn.startsWith("sceneDel_"))   { deleteScene(btn.substring("sceneDel_".length())); return }
+    if (btn.startsWith("sceneApply_"))    { applyScene(btn.substring("sceneApply_".length())); return }
+    if (btn.startsWith("sceneDel_"))      { deleteScene(btn.substring("sceneDel_".length())); return }
+    if (btn.startsWith("btnLoadScenes_")) { loadDeviceScenes(btn.substring("btnLoadScenes_".length())); return }
 
     switch (btn) {
         case "btnAllOn":       allOn();               break
@@ -531,9 +540,32 @@ private applyPresetEffectToAll() {
     log.info "Applied preset effect '${presetEffectAll}' (#${num}) to ${count} bulb(s)"
 }
 
-/** True if a bulb accepts setEffect but does not advertise its own effect list. */
+/**
+ * True if a bulb should use the built-in Tuya preset list: it's a Tuya-style driver
+ * that accepts setEffect but advertises no effect list of its own. (Govee etc. have
+ * setEffect too, but their ids are different — never send them the Tuya presets.)
+ */
 private boolean presetCapable(dev) {
-    dev.hasCommand("setEffect") && effectMapFor(dev).isEmpty()
+    dev.hasCommand("setEffect") && isTuyaStyle(dev) && effectMapFor(dev).isEmpty()
+}
+
+/** Heuristic: is this device backed by a Tuya-style driver (uses the 0..42 preset ids)? */
+private boolean isTuyaStyle(dev) {
+    String t = null
+    try { t = dev.typeName } catch (ignored) { t = null }
+    return t?.toLowerCase()?.contains("tuya")
+}
+
+/** Ask a device (e.g. Govee) to load its effect/scene list, if its driver supports it. */
+private loadDeviceScenes(String id) {
+    def dev = bulbs?.find { it.id == id }
+    if (!dev) { log.warn "loadDeviceScenes: device ${id} not in selection"; return }
+    if (dev.hasCommand("sceneLoad")) {
+        dev.sceneLoad()
+        log.info "Requested scene load for ${dev.displayName}; reopen the effects page once it finishes."
+    } else {
+        log.warn "${dev.displayName} has no sceneLoad command"
+    }
 }
 
 private cycleEffect(boolean forward) {

@@ -38,11 +38,14 @@ supports.
 - Bulbs **without** it: they simply show "no light-pattern support reported." Basic
   on/off/color still works for them.
 - **Govee** (Mavrrick's integration): uses the standard `LightEffects` capability with
-  numeric scene ids, so it works here — but the `lightEffects` list is empty until you
-  run the driver's **scene retrieval** on the device. Govee scene ids can be large, so
-  the app resolves effect ids as full numbers (not 16-bit ints). Govee scene *names*
-  won't match Tuya's, so the "common patterns" list across the two will usually be
-  empty; use the per-bulb section.
+  numeric scene ids, so it works here — but the `lightEffects` list is empty until the
+  device's scenes are loaded. When a Govee bulb has no effects yet, the per-bulb section
+  shows a **"Load scenes for …"** button that calls the driver's `sceneLoad` command;
+  once it finishes, reopen the effects page and the scenes appear. Govee scene ids can
+  be large, so the app resolves effect ids as full numbers (not 16-bit ints). Govee
+  scene *names* won't match Tuya's, so the "common patterns" list across the two will
+  usually be empty; use the per-bulb section. (The Tuya preset fallback list is only
+  offered to Tuya-style drivers, never Govee.)
 
 #### Preset effects fallback (drivers that don't advertise a list)
 
