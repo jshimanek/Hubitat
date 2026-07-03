@@ -406,7 +406,18 @@ private allOff() {
 }
 
 private applyColorMapToAll(Map colorMap) {
-    bulbs?.each { it.setColor(colorMap) }
+    int ok = 0, fail = 0
+    bulbs?.each { dev ->
+        try {
+            dev.setColor(colorMap)
+            ok++
+            logDebug "setColor ${colorMap} -> ${dev.displayName} (${dev.id})"
+        } catch (e) {
+            fail++
+            log.warn "setColor failed on ${dev.displayName} (${dev.id}): ${e.message}"
+        }
+    }
+    logDebug "applyColorMapToAll ${colorMap}: ${ok} ok / ${fail} failed of ${bulbs?.size() ?: 0} bulb(s)"
 }
 
 private applyPresetColor() {
@@ -586,8 +597,8 @@ private startShow() {
     if (!bulbs)    { log.warn "No bulbs selected"; return }
     state.showRunning = true
     state.rotateIndex = 0
+    log.info "Color show starting: mode=${showMode}, bulbs=${bulbs.size()} (${bulbs.collect { it.displayName }}), interval=${showInterval ?: 30}s, level=${showLevel ?: 100}, sameForAll=${showSameForAll}, colors=${showColors ?: 'ALL'}"
     runShowStep()
-    log.info "Color show started: ${showMode}"
 }
 
 private stopShow() {
@@ -597,27 +608,55 @@ private stopShow() {
 }
 
 def runShowStep() {
-    if (!state.showRunning) return
-    if (!bulbs) { stopShow(); return }
+    if (!state.showRunning) { logDebug "runShowStep: show not running; exiting"; return }
+    if (!bulbs) { log.warn "runShowStep: no bulbs selected; stopping show"; stopShow(); return }
 
     Integer level = (showLevel != null) ? showLevel as Integer : 100
+    logDebug "runShowStep: mode=${showMode}, bulbs=${bulbs.size()}, level=${level}, rotateIndex=${state.rotateIndex}"
 
-    if (showMode == "Random") {
-        if (showSameForAll) {
-            applyColorMapToAll(randomColor(level))
+    // Apply the step inside try/catch so a failure never prevents the reschedule
+    // below (otherwise the show would apply once and silently stop).
+    try {
+        if (showMode == "Random") {
+            if (showSameForAll) {
+                Map c = randomColor(level)
+                log.info "Color show (Random, same-for-all) -> ${c} across ${bulbs.size()} bulb(s)"
+                applyColorMapToAll(c)
+            } else {
+                log.info "Color show (Random, per-bulb) across ${bulbs.size()} bulb(s)"
+                bulbs.each { dev ->
+                    Map c = randomColor(level)
+                    try {
+                        dev.setColor(c)
+                        logDebug "  ${dev.displayName} (${dev.id}) <- ${c}"
+                    } catch (e) {
+                        log.warn "  setColor failed on ${dev.displayName} (${dev.id}): ${e.message}"
+                    }
+                }
+            }
+        } else if (showMode == "Rotate") {
+            List<String> names = (showColors && showColors.size() > 0) ? showColors : NAMED_COLORS.collect { it.name }
+            int idx = ((state.rotateIndex ?: 0) as Integer) % names.size()
+            String colorName = names[idx]
+            Map c = NAMED_COLORS.find { it.name == colorName }
+            log.info "Color show (Rotate): step ${idx + 1}/${names.size()} -> '${colorName}' ${c} across ${bulbs.size()} bulb(s); list=${names}"
+            if (c) {
+                applyColorMapToAll([hue: c.hue, saturation: c.sat, level: level])
+            } else {
+                log.warn "Rotate: no color in NAMED_COLORS matches '${colorName}'"
+            }
+            state.rotateIndex = idx + 1
         } else {
-            bulbs.each { it.setColor(randomColor(level)) }
+            log.warn "runShowStep: unknown showMode '${showMode}'"
         }
-    } else if (showMode == "Rotate") {
-        List<String> names = (showColors && showColors.size() > 0) ? showColors : NAMED_COLORS.collect { it.name }
-        int idx = ((state.rotateIndex ?: 0) as Integer) % names.size()
-        Map c = NAMED_COLORS.find { it.name == names[idx] }
-        if (c) applyColorMapToAll([hue: c.hue, saturation: c.sat, level: level])
-        state.rotateIndex = idx + 1
+    } catch (e) {
+        log.error "runShowStep: error while applying step: ${e}"
     }
 
+    // Always reschedule (unless stopped) so a per-step error can't kill the show.
     Integer interval = (showInterval != null) ? Math.max(5, showInterval as Integer) : 30
     runIn(interval, "runShowStep", [overwrite: true])
+    logDebug "runShowStep: next step scheduled in ${interval}s"
 }
 
 private Map randomColor(Integer level) {

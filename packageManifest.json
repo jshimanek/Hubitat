@@ -1,10 +1,10 @@
 {
     "packageName": "Multi-Vendor Color Bulb Controller",
     "author": "shimanek",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "minimumHEVersion": "2.3.0",
     "dateReleased": "2026-07-02",
-    "releaseNotes": "1.1.0: Add optional patched 'tuya Generic RGBW Bulb' driver (local key entity decoding, session-key and CRC/length fixes, and lightEffects publishing). 1.0.0: Initial release with on/off, common color, light patterns, scenes, color show, motion/time automations, and a named preset-effect fallback.",
+    "releaseNotes": "1.1.1: Fix color show applying to only one bulb and not rotating (a setColor failure on one bulb no longer aborts the loop or stops the show); add detailed color-show logging. 1.1.0: Add optional patched 'tuya Generic RGBW Bulb' driver. 1.0.0: Initial release.",
     "documentationLink": "https://github.com/jshimanek/Hubitat/blob/master/README.md",
     "communityLink": "",
     "id": "8b1d44d9-ac44-4dc5-b2fb-8babca09ba52",
