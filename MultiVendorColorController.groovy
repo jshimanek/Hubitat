@@ -295,23 +295,23 @@ def showPage() {
             input name: "showMode", type: "enum", title: "Show mode",
                   options: ["Random", "Rotate"], required: false, submitOnChange: true
             input name: "showInterval", type: "number", title: "Change every (seconds, min 5)",
-                  range: "5..3600", defaultValue: 30, required: false
+                  range: "5..3600", defaultValue: 30, required: false, submitOnChange: true
             input name: "showLevel", type: "number", title: "Brightness (1-100)",
-                  range: "1..100", defaultValue: 100, required: false
+                  range: "1..100", defaultValue: 100, required: false, submitOnChange: true
         }
 
         if (showMode == "Random") {
             section("Random options") {
                 input name: "showSameForAll", type: "bool",
                       title: "Same random color on all bulbs (off = each bulb different)",
-                      defaultValue: false
+                      defaultValue: false, submitOnChange: true
             }
         }
 
         if (showMode == "Rotate") {
             section("Rotate options") {
                 input name: "showColors", type: "enum", title: "Colors to rotate through (default: all)",
-                      options: NAMED_COLORS.collect { it.name }, multiple: true, required: false
+                      options: NAMED_COLORS.collect { it.name }, multiple: true, required: false, submitOnChange: true
             }
         }
 
