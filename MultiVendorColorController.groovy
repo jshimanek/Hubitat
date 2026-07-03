@@ -107,9 +107,19 @@ def initialize() {
         log.info "Scheduled daily time trigger at ${triggerTime}"
     }
 
-    // Resume the color show if it was running before this reconfigure.
-    if (atomicState.showRunning) {
+    // Color show: driven by the showEnabled preference so scheduling happens here
+    // in updated()/initialize() (reliable) instead of from a button handler, where
+    // runIn()/schedule() do not fire on Hubitat. Toggle showEnabled + press Done.
+    if (showEnabled && showMode && bulbs) {
+        if (!atomicState.showRunning) atomicState.rotateIndex = 0
+        atomicState.showRunning = true
         armShowSchedule()
+        runShowStep()   // apply the first step immediately for instant feedback
+        log.info "Color show enabled: mode=${showMode}, bulbs=${bulbs.size()}, interval=${showIntervalSecs()}s, level=${showLevel ?: 100}, colors=${showColors ?: 'ALL'}"
+    } else {
+        if (atomicState.showRunning) log.info "Color show disabled"
+        atomicState.showRunning = false
+        unschedule("runShowStep")
     }
 }
 
@@ -316,8 +326,8 @@ def showPage() {
         }
 
         section("Control") {
-            input name: "btnStartShow", type: "button", title: "Start show"
-            input name: "btnStopShow",  type: "button", title: "Stop show"
+            input name: "showEnabled", type: "bool", title: "Enable color show", defaultValue: false, submitOnChange: true
+            paragraph "Set the options above, turn this <b>ON</b>, then press <b>Done</b> to start the show. Turn it <b>OFF</b> and press <b>Done</b> to stop. (Scheduling must be started from Done, not a button, to run reliably on Hubitat.)"
             paragraph atomicState.showRunning ? "Status: <b>running</b> (${showMode})" : "Status: stopped"
         }
     }
@@ -387,8 +397,6 @@ def appButtonHandler(String btn) {
         case "btnNextEffect":  cycleEffect(true);     break
         case "btnPrevEffect":  cycleEffect(false);    break
         case "btnSaveScene":   saveScene();           break
-        case "btnStartShow":   startShow();           break
-        case "btnStopShow":    stopShow();            break
         default: log.warn "Unhandled button: ${btn}"
     }
 }
@@ -614,16 +622,6 @@ private armShowSchedule() {
     unschedule("runShowStep")
     schedule(cron, "runShowStep")
     log.info "Color show schedule armed: every ~${interval}s (cron='${cron}')"
-}
-
-private startShow() {
-    if (!showMode) { log.warn "Choose Random or Rotate first"; return }
-    if (!bulbs)    { log.warn "No bulbs selected"; return }
-    atomicState.showRunning = true
-    atomicState.rotateIndex = 0
-    log.info "Color show starting: mode=${showMode}, bulbs=${bulbs.size()} (${bulbs.collect { it.displayName }}), interval=${showIntervalSecs()}s, level=${showLevel ?: 100}, sameForAll=${showSameForAll}, colors=${showColors ?: 'ALL'}"
-    armShowSchedule()
-    runShowStep()   // apply the first step immediately for instant feedback
 }
 
 private stopShow() {

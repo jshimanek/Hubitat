@@ -115,8 +115,10 @@ to the HPM project). That step is optional and only needed for public discoverab
 6. **Scenes** — set the bulbs how you like, name a scene, and **Save scene**. Recall
    or delete saved scenes from the same page.
 7. **Color show** — pick **Random** (same color on all, or a different one per bulb)
-   or **Rotate** (cycle through chosen named colors), set the interval, and **Start**.
-   It keeps running until you **Stop** it (and survives app edits/hub reboots).
+   or **Rotate** (cycle through chosen named colors), set the interval, turn
+   **Enable color show** ON, and press **Done**. Turn it OFF and press **Done** to
+   stop. (Starting from **Done** rather than a button is required so the recurring
+   schedule runs reliably on Hubitat.) It survives app edits/hub reboots.
 8. **Automations** — turn on / apply a scene / apply a named color when **motion** is
    detected (with an optional auto-off delay after motion stops), and run a daily
    **time** action (on / off / apply scene). Press **Done** to arm them.
@@ -135,9 +137,11 @@ to the HPM project). That step is optional and only needed for public discoverab
   bulbs by device id against your *current* selection — if a scene references a bulb
   you later removed from the app, that bulb is skipped. Effects are re-resolved by name
   at recall time, so they still work if a driver renumbers its effect ids.
-- **Color show** self-reschedules with `runIn` and is marked running in `state`, so it
-  resumes automatically after you save the app or the hub reboots. Interval is clamped
-  to a 5-second minimum to protect your Zigbee/Z-Wave mesh from flooding.
+- **Color show** is driven by the `showEnabled` preference and a recurring `schedule()`
+  cron job armed in `initialize()`; it uses `atomicState` for its running flag and rotate
+  index (visible across the scheduler boundary), and resumes automatically after you save
+  the app or the hub reboots. Interval is clamped to a 5-second minimum to protect your
+  Zigbee/Z-Wave mesh from flooding.
 - **Automations** are (re)armed in `initialize()` whenever you press **Done**. The motion
   auto-off only fires when *every* subscribed sensor is inactive, and is cancelled if
   motion resumes before the delay elapses.
