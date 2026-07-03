@@ -88,6 +88,12 @@ keep the app updated.
 4. Follow the prompts. HPM installs the app code for you; then add the app under
    **Apps → Add User App**.
 
+The package also includes an **optional** patched driver, *tuya Generic RGBW Bulb*
+([drivers/tuyaGenericBulbRGBW.groovy](drivers/tuyaGenericBulbRGBW.groovy)) — HPM will
+offer it during install. Select it only if you have Tuya Wi‑Fi RGBW bulbs; it fixes
+local-key entity decoding, session-key/CRC/length handling, and publishes the
+`lightEffects` list so this app can discover the bulb's patterns.
+
 **Updates:** HPM's **Update** action compares the `version` in the manifest against
 what's installed. To publish a new version, bump `version` and `dateReleased` in
 `packageManifest.json`, push, and HPM users will be offered the update.

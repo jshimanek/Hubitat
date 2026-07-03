@@ -1,10 +1,10 @@
 {
     "packageName": "Multi-Vendor Color Bulb Controller",
     "author": "shimanek",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "minimumHEVersion": "2.3.0",
     "dateReleased": "2026-07-02",
-    "releaseNotes": "Initial HPM release: on/off, common color, manufacturer light patterns, scenes, color show, motion/time automations, and a named preset-effect fallback for drivers that don't advertise a lightEffects list.",
+    "releaseNotes": "1.1.0: Add optional patched 'tuya Generic RGBW Bulb' driver (local key entity decoding, session-key and CRC/length fixes, and lightEffects publishing). 1.0.0: Initial release with on/off, common color, light patterns, scenes, color show, motion/time automations, and a named preset-effect fallback.",
     "documentationLink": "https://github.com/jshimanek/Hubitat/blob/master/README.md",
     "communityLink": "",
     "id": "8b1d44d9-ac44-4dc5-b2fb-8babca09ba52",
@@ -19,5 +19,13 @@
             "primary": true
         }
     ],
-    "drivers": []
+    "drivers": [
+        {
+            "id": "077efd31-6284-4576-b29d-68b1c9dc3fb1",
+            "name": "tuya Generic RGBW Bulb",
+            "namespace": "iholand",
+            "location": "https://raw.githubusercontent.com/jshimanek/Hubitat/master/drivers/tuyaGenericBulbRGBW.groovy",
+            "required": false
+        }
+    ]
 }
