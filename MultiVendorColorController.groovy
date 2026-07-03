@@ -194,19 +194,19 @@ def colorPage() {
                   title: "Named color",
                   options: NAMED_COLORS.collect { it.name },
                   required: false,
-                  submitOnChange: false
+                  submitOnChange: true
             input name: "btnApplyPreset", type: "button", title: "Apply named color to all"
         }
 
         section("Custom color (HSL)") {
-            input name: "customHue",  type: "number", title: "Hue (0-100)",        range: "0..100", required: false
-            input name: "customSat",  type: "number", title: "Saturation (0-100)", range: "0..100", required: false
-            input name: "customLevel",type: "number", title: "Brightness (1-100)", range: "1..100", required: false
+            input name: "customHue",  type: "number", title: "Hue (0-100)",        range: "0..100", required: false, submitOnChange: true
+            input name: "customSat",  type: "number", title: "Saturation (0-100)", range: "0..100", required: false, submitOnChange: true
+            input name: "customLevel",type: "number", title: "Brightness (1-100)", range: "1..100", required: false, submitOnChange: true
             input name: "btnApplyCustom", type: "button", title: "Apply custom color to all"
         }
 
         section("White / color temperature") {
-            input name: "colorTemp", type: "number", title: "Color temperature (2000-6500 K)", range: "2000..6500", required: false
+            input name: "colorTemp", type: "number", title: "Color temperature (2000-6500 K)", range: "2000..6500", required: false, submitOnChange: true
             input name: "btnApplyTemp", type: "button", title: "Apply white temperature to all"
             paragraph "Note: only bulbs that report the colorTemperature capability will respond to white temperature."
         }
@@ -227,7 +227,8 @@ def effectsPage() {
                       type: "enum",
                       title: "Choose a pattern supported by every bulb",
                       options: common,
-                      required: false
+                      required: false,
+                      submitOnChange: true
                 input name: "btnApplyCommon", type: "button", title: "Apply to all bulbs"
             } else {
                 paragraph "No single pattern is supported by every selected bulb. Use the per-bulb section below, or select bulbs from the same product family."
@@ -242,7 +243,8 @@ def effectsPage() {
                           type: "enum",
                           title: "${dev.displayName}",
                           options: fx,
-                          required: false
+                          required: false,
+                          submitOnChange: true
                 } else if (dev.hasCommand("setEffect")) {
                     // Driver supports the setEffect command but doesn't advertise a
                     // list, so offer the named preset list (e.g. Tuya RGBW bulbs).
@@ -250,7 +252,8 @@ def effectsPage() {
                           type: "enum",
                           title: "${dev.displayName} — preset effects (driver advertises none)",
                           options: TUYA_RGBW_EFFECTS.keySet().toList(),
-                          required: false
+                          required: false,
+                          submitOnChange: true
                 } else {
                     String raw = rawEffects(dev)
                     if (raw) {
@@ -270,7 +273,8 @@ def effectsPage() {
                       type: "enum",
                       title: "Preset effect",
                       options: TUYA_RGBW_EFFECTS.keySet().toList(),
-                      required: false
+                      required: false,
+                      submitOnChange: true
                 input name: "btnApplyPresetAll", type: "button", title: "Apply preset to all compatible bulbs"
             }
         }
@@ -487,22 +491,26 @@ private applyCommonEffect() {
 
 private applyPerBulbEffects() {
     bulbs?.each { dev ->
-        // Advertised effect (resolved by name -> id from the device's own list).
+        // Prefer the advertised effect (resolved by name -> id from the device's own
+        // list). Only fall back to the preset list if the bulb advertises nothing,
+        // so a stale preset value can't override the current selection.
         String chosen = settings["effect_${dev.id}"]
         if (chosen) {
             Integer id = effectIdForName(dev, chosen)
             if (id != null) {
                 dev.setEffect(id)
-                logDebug "Set '${chosen}' (id ${id}) on ${dev.displayName}"
+                log.info "Effect '${chosen}' (id ${id}) -> ${dev.displayName}"
+            } else {
+                log.warn "Effect '${chosen}' not found on ${dev.displayName}"
             }
+            return   // handled this bulb; skip the preset fallback
         }
-        // Preset effect (name -> number from the built-in TUYA_RGBW_EFFECTS map).
         String preset = settings["fxpreset_${dev.id}"]
         if (preset) {
             Integer num = TUYA_RGBW_EFFECTS[preset]
             if (num != null && dev.hasCommand("setEffect")) {
                 dev.setEffect(num)
-                logDebug "Set preset '${preset}' (#${num}) on ${dev.displayName}"
+                log.info "Preset effect '${preset}' (#${num}) -> ${dev.displayName}"
             }
         }
     }
